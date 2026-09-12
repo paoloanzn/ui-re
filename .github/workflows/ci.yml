@@ -11,6 +11,20 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
+      # Ubuntu's AppArmor user-namespace restriction blocks downloaded Chromium.
+      # Allow the pinned Playwright executable to use Chromium's own sandbox.
+      - name: Allow Chromium sandbox on the CI runner
+        shell: bash
+        run: |
+          chromium_executable=$(node -e "process.stdout.write(require('playwright').chromium.executablePath())")
+          sudo tee /etc/apparmor.d/ui-re-chromium >/dev/null <<EOF
+          abi <abi/4.0>,
+          include <tunables/global>
+          profile ui-re-chromium "$chromium_executable" flags=(unconfined) {
+            userns,
+          }
+          EOF
+          sudo apparmor_parser -r /etc/apparmor.d/ui-re-chromium
       - run: node scripts/check-environment.mjs
       - run: npm run check-skill
       - run: npm run typecheck
