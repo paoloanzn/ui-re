@@ -6,7 +6,20 @@ Capture, normalization and verification are deterministic Node/TypeScript tools.
 
 ## Install and preflight
 
-Copy or clone this directory as `ui-re` into your agent's skill directory (for Codex, `~/.codex/skills/ui-re`), or point the agent at this root `SKILL.md`. The frontmatter routes requests to reproduce a reference website; ordinary frontend work is outside activation scope. `agents/openai.yaml` supplies optional Codex UI metadata.
+Install or update the skill for both Claude Code and Codex (macOS/Linux, with Git and curl installed):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/paoloanzn/ui-re/main/install.sh | sh
+```
+
+The installer clones `https://github.com/paoloanzn/ui-re.git` on first use and fast-forwards existing checkouts to `origin/main` on subsequent runs. It uses the documented personal skill locations:
+
+- Claude Code: `~/.claude/skills/ui-re` ([Claude Code docs](https://code.claude.com/docs/en/skills#where-skills-live)).
+- Codex: `~/.agents/skills/ui-re` ([OpenAI docs](https://learn.chatgpt.com/docs/build-skills#where-codex-loads-local-skills)).
+
+It refuses unrelated directories, symlinks, local tracked edits and non-fast-forward updates. Runtime dependencies and browsers are installed separately through the approval-gated setup below. To run a local copy, use `sh install.sh`; optionally set `UI_RE_INSTALL_HOME` to an absolute directory to install under a different home root.
+
+The frontmatter routes requests to reproduce a reference website; ordinary frontend work is outside activation scope. `agents/openai.yaml` supplies optional Codex UI metadata.
 
 Requirements: Node.js 22+, npm, local dependencies and a usable Chromium. Start with:
 
