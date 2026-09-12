@@ -1,6 +1,6 @@
-# Completion audit
+# Implementation validation
 
-The full 15-part objective was checked against source, executable checks and generated artifacts. This audit describes the skill package and its controlled-target end-to-end evaluation; it does not claim that the reconstruction-preparation command autonomously writes a website.
+The initial 15-part objective was checked against source, executable checks and generated artifacts. The table records that initial audit; the large-site follow-up below records the current regression results. This audit describes the skill package and its controlled-target end-to-end evaluation; it does not claim that the reconstruction-preparation command autonomously writes a website.
 
 | Requirement | Authoritative evidence |
 |---|---|
@@ -31,6 +31,19 @@ The full 15-part objective was checked against source, executable checks and gen
 
 ## Scope of validation and known limits
 
-The live tests ran locally on macOS with discovered Chrome; the GitHub Actions job is configured but was not run remotely because this workspace has no remote repository/workflow run. Its checks were executed locally. Dynamic content, browser/font rendering differences, container-query interpretation and out-of-session frames can require extra captures or agent diagnosis, as documented in the phase references. The fixture uses a controlled target, which the objective explicitly allows; agent reconstruction remains the skill consumer's work.
+The initial live tests ran locally on macOS with discovered Chrome. GitHub Actions was subsequently configured and exercised remotely; the large-site follow-up below includes the current CI result. Dynamic content, browser/font rendering differences, container-query interpretation and out-of-session frames can require extra captures or agent diagnosis, as documented in the phase references. The fixture uses a controlled target, which the objective explicitly allows; agent reconstruction remains the skill consumer's work.
 
 The installed skill-creator quick validator predates the current supported `compatibility` field and rejects it. The field is retained per the Agent Skills specification; this repository's dependency-free checker validates its scalar frontmatter and direct references successfully.
+
+
+## Large-site follow-up — 2026-09-12
+
+The reported V8 string-limit failure is covered by both repeatable regressions and a complete live capture of `https://bags.fm`. Capture now writes raw-frame v2 with per-element CSS records and shared rule/stylesheet files. Preprocessing retains v1 compatibility, expands individual CSS records, and stores normalized CSS separately. JSON output is incremental. Screenshots precede DOMSnapshot because screenshot animation completion can invalidate pseudo-element IDs; a browser regression verifies this behavior. CSS request deadlines and storage errors stop capture rather than producing a misleading completion manifest.
+
+- `UI_RE_INTEGRATION=1 UI_RE_STRESS=1 npm test`: 26 tests pass locally and on [GitHub Actions](https://github.com/paoloanzn/ui-re/actions/runs/34704955377), with no skips. The suite includes capture/preprocess of 512 elements with 537,070,080 logical CSS bytes, stored in 733,192 raw CSS bytes with exact evidence roundtrips; it also writes 536,895,490 JSON bytes under a 96 MiB V8 heap limit. CI observed 89,198,592 bytes RSS for that writer regression.
+- `node scripts/ui-re.mjs capture --url https://bags.fm --output .runs/bags-scalable-006` completed with Chromium 145.0.7632.6 and the unchanged defaults: 390/1440 plus nine discovered breakpoint widths, 11 frames total. All 8,386 rendered element IDs were attempted; 8,292 CSS records were saved, and the 94 nodes unavailable after live DOM changes each have an explicit warning. No sampling or reduced viewport coverage was used.
+- The mobile frame's CSS alone would require at least 838,933,619 characters at the old indentation depth, exceeding V8's 536,870,888-character limit. Its new raw frame index is 936,552 bytes; CSS remains in sidecar files. All raw frame indexes are below 1 MB. The entire 11-frame capture is 221,258,432 bytes, including assets, screenshots, archives and CSS.
+- `node --max-old-space-size=128 dist/cli.js preprocess --input .runs/bags-scalable-006 --output .runs/bags-scalable-006-ir` completed in 158.31 seconds with a 128 MiB V8 heap limit; process peak RSS was 323,010,560 bytes. The IR contains 11,995 nodes across 11 trees and 554 shared normalized CSS files, totaling 85,587,478 bytes. Every CSS reference resolves, and no matched-CSS shape was rejected.
+- Reconstruction-task preparation accepts the bundle. A verification self-check processes all 11 frames with zero pixel/geometry deltas and complete geometry coverage. This checks artifact compatibility, not a reconstruction of bags.fm; the controlled integration test separately verifies rejection of changed layout and protection of referenced CSS under the frozen policy.
+
+Inspected artifacts: `.runs/bags-scalable-006/capture.json`, `.runs/bags-scalable-006-ir/manifest.json`, `.runs/bags-scalable-006-audit.json`, `.runs/bags-scalable-006-task/reconstruction.json`, and `.runs/bags-scalable-006-self-check/iteration-001/report.json`. Mobile and desktop screenshots were viewed. Live-site limitations remain explicit: changing DOM nodes, asset redirects/lazy or unavailable media, and out-of-session frames produce warnings; the first mobile screenshot includes loading placeholders. These do not prevent the capture or preprocessing phases from completing.
