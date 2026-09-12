@@ -12,6 +12,8 @@ export function normalize(raw: RawFrame, frameId: string, options: NormalizeOpti
   const strings = raw.snapshot.strings;
   const stringAt = (index: number | undefined): string => index === undefined ? '' : strings[index] ?? '';
   const nodes: UiTree['nodes'] = [];
+  const accessibilityByBackend=new Map(raw.accessibility.nodes.filter(item=>!item.ignored).map(item=>[item.backendDOMNodeId,item]));
+  const cssByBackend=new Map(raw.css.matched.map(item=>[item.backendNodeId,item]));
   const warnings = [...raw.warnings];
   raw.snapshot.documents.forEach((doc, document) => {
     const layoutByNode = new Map(doc.layout.nodeIndex.map((node,index) => [node,index]));
@@ -37,10 +39,10 @@ export function normalize(raw: RawFrame, frameId: string, options: NormalizeOpti
       if (/^(pre|break-spaces)/.test(styles['white-space'] ?? '')) text=options.rewrite(stringAt(doc.nodes.nodeValue[index]));
       const bounds = layoutIndex === undefined ? null : doc.layout.bounds[layoutIndex] ?? null;
       const backendNodeId = doc.nodes.backendNodeId[index] ?? -1;
-      const ax = raw.accessibility.nodes.find(item => item.backendDOMNodeId === backendNodeId && !item.ignored);
+      const ax = accessibilityByBackend.get(backendNodeId);
       const role = typeof ax?.role?.value === 'string' ? ax.role.value : undefined;
       const name = typeof ax?.name?.value === 'string' ? options.rewrite(ax.name.value) : undefined;
-      const css = raw.css.matched.find(item => item.backendNodeId === backendNodeId);
+      const css = cssByBackend.get(backendNodeId);
       const cssEvidence = css ? compactCss(css.evidence) : undefined;
       if (cssEvidence && typeof cssEvidence === 'object' && 'warning' in cssEvidence) warnings.push(`${id}: ${String(cssEvidence.warning)}`);
       const visible = !!bounds && bounds[2]>0 && bounds[3]>0 && styles['display']!=='none' && styles['visibility']!=='hidden' && styles['visibility']!=='collapse' && Number(styles['opacity'] ?? '1')>0.001;

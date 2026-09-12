@@ -9,7 +9,7 @@ import { capture } from './capture.js';
 import { launchBrowser } from './launchBrowser.js';
 import { readJson } from './readJson.js';
 import { CaptureBundle } from '../contracts/CaptureBundle.js';
-import { RawFrame } from '../contracts/RawFrame.js';
+import { StoredFrame } from '../contracts/StoredFrame.js';
 
 test('Chromium captures responsive structure, semantics, assets and dialog state', { skip: process.env.UI_RE_INTEGRATION !== '1', timeout: 120000 }, async () => {
   const server = createServer((request, response) => {
@@ -29,11 +29,37 @@ test('Chromium captures responsive structure, semantics, assets and dialog state
     assert.ok(result.assets.some(asset => asset.mime === 'image/svg+xml' && asset.file));
     const saved = await readJson(join(output,'capture.json'), CaptureBundle); assert.deepEqual(saved,result);
     const frame = result.frames.find(item => item.state === 'dialog'); assert.ok(frame);
-    const raw = await readJson(join(output,frame.raw), RawFrame);
+    const raw = await readJson(join(output,frame.raw), StoredFrame);
     assert.ok(raw.snapshot.documents[0]?.layout.bounds.length);
     assert.ok(raw.accessibility.nodes.some(node => node.role?.value === 'dialog'));
     assert.ok(raw.css.matched.length > 0); assert.ok(raw.css.stylesheets.length > 0);
     assert.ok((await readFile(join(output,frame.screenshot))).length > 1000);
     assert.match(await readFile(join(output,frame.archive),'utf8'), /Fieldnotes/);
   } finally { await new Promise<void>((resolve,reject) => server.close(error => error ? reject(error) : resolve())); await rm(root,{recursive:true,force:true}); }
+});
+
+test('screenshot animation completion cannot leave stale pseudo-elements in CSS capture', {skip:process.env.UI_RE_INTEGRATION!=='1',timeout:30000}, async()=>{
+  const server=createServer((_request,response)=>{
+    response.setHeader('Content-Type','text/html');
+    response.end(`<!doctype html><style>
+      .animating::before { content: 'transient'; animation: vanish 60s linear; }
+      @keyframes vanish { from { opacity: 1; } to { opacity: 0; } }
+    </style><button class="animating">Stable button</button><script>
+      document.querySelector('button').addEventListener('animationend', event => {
+        event.target.className = 'finished';
+      });
+    </script>`);
+  });
+  await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));
+  const address=server.address();assert.ok(address&&typeof address!=='string');
+  const root=await mkdtemp(join(tmpdir(),'ui-re-animation-'));
+  try {
+    const output=join(root,'capture');
+    const bundle=await capture({url:`http://127.0.0.1:${address.port}`,viewports:[{width:390,height:844}],discoverBreakpoints:false,settleMs:0,timeoutMs:1000},output,{launch:launchBrowser,now:()=>new Date(),log:()=>{}});
+    const frame=bundle.frames[0];assert.ok(frame);
+    const raw=await readJson(join(output,frame.raw),StoredFrame);
+    assert.ok(raw.snapshot.strings.includes('finished'),'the screenshot completed the animation');
+    for(const doc of raw.snapshot.documents) assert.ok(!doc.nodes.nodeName.some(index=>raw.snapshot.strings[index]==='::before'),'no detached pseudo-element reaches CSS collection');
+    assert.deepEqual(raw.warnings,[]);
+  }finally {await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));await rm(root,{recursive:true,force:true});}
 });
