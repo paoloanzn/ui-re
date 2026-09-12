@@ -1,0 +1,4 @@
+interface:
+  display_name: "Website UI Reconstruction"
+  short_description: "Rebuild website UI from browser-captured evidence"
+  default_prompt: "Use $ui-re to reconstruct this website's UI in editable React code and verify it against browser evidence."

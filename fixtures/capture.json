@@ -1,0 +1,1 @@
+{"version":1,"viewports":[{"width":390,"height":844,"dpr":1},{"width":1100,"height":800,"dpr":1}],"maxDiscoveredViewports":3,"states":[{"id":"default","actions":[]},{"id":"dialog","actions":[{"type":"click","selector":".hero button"}]}]}

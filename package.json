@@ -1,0 +1,30 @@
+{
+  "name": "ui-re",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Portable browser-evidence UI reconstruction skill",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "check-environment": "node scripts/check-environment.mjs",
+    "setup": "node scripts/setup.mjs",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test src/**/*.test.ts",
+    "ui-re": "tsx src/cli.ts",
+    "check-skill": "node scripts/check-skill.mjs"
+  },
+  "dependencies": {
+    "playwright": "1.58.2",
+    "pngjs": "7.0.0",
+    "zod": "4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "@types/pngjs": "6.0.5",
+    "tsx": "4.21.0",
+    "typescript": "5.9.3"
+  }
+}
