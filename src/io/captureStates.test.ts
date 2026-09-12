@@ -8,7 +8,7 @@ import { capture } from './capture.js';
 import { launchBrowser } from './launchBrowser.js';
 import { preprocess } from './preprocess.js';
 import { readJson } from './readJson.js';
-import { RawFrame } from '../contracts/RawFrame.js';
+import { StoredFrame } from '../contracts/StoredFrame.js';
 import { UiTree } from '../contracts/UiTree.js';
 test('alternate-route menu/hover state and child-frame accessibility survive capture',{skip:process.env.UI_RE_INTEGRATION!=='1',timeout:60000},async()=>{
  const html=await readFile(new URL('../../fixtures/site/index.html',import.meta.url),'utf8');
@@ -24,7 +24,7 @@ test('alternate-route menu/hover state and child-frame accessibility survive cap
   const bundle=await capture({url:`http://127.0.0.1:${address.port}`,discoverBreakpoints:false,viewports:[{width:390,height:844}],states:[{id:'menu',path:'/alternate',actions:[{type:'click',selector:'.menu-toggle'},{type:'wait',selector:'nav.open'},{type:'hover',selector:'.hero button'}]}]},join(root,'capture'),{launch:launchBrowser,now:()=>new Date(),log:()=>{}});
   assert.ok(bundle.assets.some(asset=>asset.url.endsWith('/missing.png')&&asset.warning?.includes('HTTP 404')));
   const frame=bundle.frames[0];assert.ok(frame);assert.match(frame.url,/alternate$/);
-  const raw=await readJson(join(root,'capture',frame.raw),RawFrame);assert.equal(raw.snapshot.documents.length,2);assert.ok(raw.accessibility.nodes.some(node=>node.name?.value==='Embedded heading'));
+  const raw=await readJson(join(root,'capture',frame.raw),StoredFrame);assert.equal(raw.snapshot.documents.length,2);assert.ok(raw.accessibility.nodes.some(node=>node.name?.value==='Embedded heading'));
   await preprocess(join(root,'capture'),join(root,'ir'));const tree=await readJson(join(root,'ir/trees',`${frame.id}.json`),UiTree);
   assert.equal(tree.documents.length,2);assert.ok(tree.nodes.some(node=>node.attributes['aria-expanded']==='true'));
   assert.ok(tree.nodes.some(node=>node.tag==='button'&&node.styles['background-color']==='rgb(71, 105, 80)'));

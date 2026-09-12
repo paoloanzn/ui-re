@@ -6,7 +6,7 @@ import { z } from 'zod';
 import type { Browser, Response } from 'playwright';
 import { CaptureConfig } from '../contracts/CaptureConfig.js';
 import { CaptureBundle } from '../contracts/CaptureBundle.js';
-import { RawFrame } from '../contracts/RawFrame.js';
+import { StoredFrame } from '../contracts/StoredFrame.js';
 import { Snapshot } from '../contracts/Snapshot.js';
 import type { CaptureStrategy } from '../ports/CaptureStrategy.js';
 import { domSnapshotStrategy } from './domSnapshotStrategy.js';
@@ -90,19 +90,20 @@ export async function capture(input: unknown, outputPath: string, deps: CaptureD
           await page.waitForTimeout(config.settleMs);
           const id = `${state.id}-${viewport.width}x${viewport.height}-${dpr}`;
           const frameWarnings: string[] = [];
+          const timestamp=deps.now().toISOString();
+          // Screenshot animation handling can replace pseudo-elements; snapshot afterwards.
+          const screenshot = `frames/${id}.png`; let archive = `frames/${id}.mhtml`; const rawPath = `frames/${id}.json`;
+          await page.screenshot({ path: join(output, screenshot), fullPage: true, animations: 'disabled', caret: 'hide' });
           const snapshot = Snapshot.parse(await strategy.capture(cdp));
           for(const assetUrl of referencedAssets(snapshot,page.url()))references.add(assetUrl);
           const accessibility = await captureAccessibility(cdp, snapshot, frameWarnings);
           if (page.frames().length > snapshot.documents.length) frameWarnings.push('Some frames are outside this CDP snapshot session; capture their authorized URLs separately for full structure.');
-          const css = await captureCss(cdp, snapshot, headers, frameWarnings);
-          const raw = RawFrame.parse({ version: 1, snapshot, accessibility, css, warnings: frameWarnings });
-          const screenshot = `frames/${id}.png`; let archive = `frames/${id}.mhtml`; const rawPath = `frames/${id}.json`;
-          await page.screenshot({ path: join(output, screenshot), fullPage: true, animations: 'disabled', caret: 'hide' });
           try { const result = z.object({ data: z.string() }).parse(await cdp.send('Page.captureSnapshot', { format: 'mhtml' })); await writeFile(join(output, archive), result.data); }
           catch (error) { frameWarnings.push(`MHTML unavailable; HTML fallback: ${String(error)}`); archive = `frames/${id}.html`; await writeFile(join(output, archive), await page.content()); }
-          await writeJson(join(output, rawPath), RawFrame.parse({ ...raw, warnings: frameWarnings }));
           const scroll = scrollSchema.parse(await page.evaluate(() => ({ x: scrollX, y: scrollY })));
-          bundle.frames.push({ id, state: state.id, url: page.url(), viewport, scroll, timestamp: deps.now().toISOString(), screenshot, archive, raw: rawPath });
+          const css = await captureCss(cdp, snapshot, headers, frameWarnings, output, id, deps.log, config.timeoutMs);
+          await writeJson(join(output, rawPath), StoredFrame.parse({ version:2,snapshot,accessibility,css,warnings:frameWarnings }));
+          bundle.frames.push({ id, state: state.id, url: page.url(), viewport, scroll, timestamp, screenshot, archive, raw: rawPath });
           deps.log({ phase: 'capture', frame: id, warnings: frameWarnings.length });
         }
       }

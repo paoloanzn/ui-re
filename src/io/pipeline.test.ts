@@ -12,6 +12,8 @@ import { verify } from './verify.js';
 import { comparePixels } from '../core/comparePixels.js';
 import { readJson } from './readJson.js';
 import { VerificationReport } from '../contracts/VerificationReport.js';
+import { UiTree } from '../contracts/UiTree.js';
+import { CssReference } from '../contracts/CssReference.js';
 import { UiManifest } from '../contracts/UiManifest.js';
 
 test('disk-resumed pipeline accepts control, rejects changed layout, freezes policy and limits repairs',{skip:process.env.UI_RE_INTEGRATION!=='1',timeout:120000},async()=>{
@@ -27,6 +29,10 @@ test('disk-resumed pipeline accepts control, rejects changed layout, freezes pol
   await capture({url,viewports:[{width:1100,height:800}],discoverBreakpoints:false},join(root,'capture'),deps);
   await preprocess(join(root,'capture'),join(root,'ir'));
   const manifest=await readJson(join(root,'ir/manifest.json'),UiManifest);const frame=manifest.frames[0];assert.ok(frame);
+  const parsedTree=await readJson(join(root,'ir',frame.tree),UiTree);
+  const withCss=parsedTree.nodes.find(node=>node.css);assert.ok(withCss);
+  const cssRef=CssReference.parse(withCss.css);
+  const css=await readFile(join(root,'ir',cssRef.file),'utf8');assert.match(css,/declarations/);
   const tree=await readFile(join(root,'ir',frame.tree),'utf8');assert.ok(tree.length<500000);assert.ok(!tree.includes('data:image/'));
   await render(join(root,'capture'),url,join(root,'render'),deps);await preprocess(join(root,'render'),join(root,'target'));
   const policy={maxIterations:2};assert.ok('accepted' in (await verify(join(root,'ir'),join(root,'target'),join(root,'reports'),policy,comparePixels)));
@@ -41,6 +47,9 @@ test('disk-resumed pipeline accepts control, rejects changed layout, freezes pol
   const corrupt=await verify(join(root,'ir'),join(root,'target'),join(root,'corrupt-reports'),{},comparePixels);
   assert.equal(corrupt.status,'compared');if(corrupt.status==='compared')assert.equal(corrupt.accepted,false);
   const corruptReport=await readJson(join(root,'corrupt-reports/iteration-001/report.json'),VerificationReport);assert.ok(corruptReport.frames.some(item=>'error' in item&&item.error.includes('comparison failed')));
+  await writeFile(join(root,'ir',cssRef.file),css+'\n');
+  assert.equal((await verify(join(root,'ir'),join(root,'target'),join(root,'reports'),policy,comparePixels)).status,'policy-conflict');
+  await writeFile(join(root,'ir',cssRef.file),css);
   await writeFile(join(root,'ir',frame.tree),tree+'\n');
   assert.equal((await verify(join(root,'ir'),join(root,'target'),join(root,'reports'),policy,comparePixels)).status,'policy-conflict');
   await assert.rejects(preprocess(join(root,'capture'),join(root,'ir')),/EEXIST/);

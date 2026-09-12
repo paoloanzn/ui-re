@@ -32,3 +32,4 @@ jobs:
       - run: npm test
         env:
           UI_RE_INTEGRATION: '1'
+          UI_RE_STRESS: '1'
